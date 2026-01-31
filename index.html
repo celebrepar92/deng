@@ -29,6 +29,11 @@
                     <input type="file" id="userImageFile" accept="image/*" style="display:none">
                     <button type="button" onclick="document.getElementById('userImageFile').click()" style="width: auto; font-size: 0.8em; background: #555;">Subir archivo</button>
                 </div>
+                
+                <button type="button" id="randomArtBtn" style="background-color: #4b7bec; margin-bottom: 10px; font-size: 0.85em;">
+                    🎨 Buscar Arte Aleatorio (API)
+                </button>
+
                 <small id="fileNameDisplay" style="display: block; margin-bottom: 10px; font-size: 0.7em; color: #666;"></small>
                 
                 <div style="margin-bottom: 10px;">
@@ -49,6 +54,13 @@
                         <input type="text" id="artworkName" placeholder="Nombre de la Obra">
                         <input type="text" id="artistName" placeholder="Nombre del Artista">
                     </div>
+
+                    <div class="credits-container" style="border-top: 1px solid #eee; padding-top: 10px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                        <input type="checkbox" id="onlyArtistName" style="width: auto;">
+                        <label for="onlyArtistName" style="font-size: 0.75em; margin-bottom: 0;">Mostrar solo el nombre del artista</label>
+                    </div>
+                </div>
                 </div>
             </div>
             
@@ -83,6 +95,13 @@
                     <input type="color" id="manualAccentColor" value="#ff4757" style="height: 40px; padding: 2px;">
                 </div>
             </div>
+
+             <div class="control-group">
+                    <div style="display: flex; align-items: center; gap: 10px; background: #f9f9f9; padding: 10px; border-radius: 5px; border: 1px solid #eee;">
+                        <input type="checkbox" id="pastelMode" style="width: auto;">
+                        <label for="pastelMode" style="margin-bottom: 0; font-size: 0.9em;">✨ Usar paleta pastel vibrante</label>
+                    </div>
+                </div>
 
             <button id="shuffleBtn" type="button" style="background-color: #57606f; margin-bottom: 15px;">
                 🔀 Mezclar Colores y Patrones

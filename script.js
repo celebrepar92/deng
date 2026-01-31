@@ -1,5 +1,7 @@
 /**
  * Generador de Agenda #ElFinde - Versión Final Consolidada
+ * Incluye: Selección de banner dinámico, API de Arte, Traducción Automática,
+ * Créditos simplificados y Modo Pastel Vibrante.
  */
 
 let currentJsonData = null;
@@ -18,6 +20,7 @@ const daySelector = document.getElementById('daySelector');
 const dayTextInput = document.getElementById('dayText');
 const userImgUrlInput = document.getElementById('userImageUrl');
 const userImageFileInput = document.getElementById('userImageFile');
+const randomArtBtn = document.getElementById('randomArtBtn');
 const imageAlignSelect = document.getElementById('imageAlign');
 const manualAccentColorInput = document.getElementById('manualAccentColor');
 const manualBgColorInput = document.getElementById('manualBgColor');
@@ -28,8 +31,9 @@ const generateBtn = document.getElementById('generateBtn');
 const shuffleBtn = document.getElementById('shuffleBtn');
 const canvasContainer = document.getElementById('canvasContainer');
 const downloadAllBtn = document.getElementById('downloadAllBtn');
+const pastelModeCheckbox = document.getElementById('pastelMode');
 
-// 1. GESTIÓN DE EVENTOS
+// 1. GESTIÓN DE EVENTOS Y ARCHIVOS
 jsonFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -56,6 +60,47 @@ userImageFileInput.addEventListener('change', (e) => {
     reader.readAsDataURL(file);
 });
 
+// 2. LÓGICA DE TRADUCCIÓN Y API DE ARTE
+async function traducirAlEspañol(texto) {
+    if (!texto) return "";
+    try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|es`;
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.responseData.translatedText || texto;
+    } catch (e) {
+        console.error("Error en traducción:", e);
+        return texto;
+    }
+}
+
+randomArtBtn.addEventListener('click', async () => {
+    randomArtBtn.textContent = "⌛ Buscando y Traduciendo...";
+    randomArtBtn.disabled = true;
+    try {
+        const response = await fetch('https://api.artic.edu/api/v1/artworks/search?query[term][is_public_domain]=true&limit=100&fields=id,title,artist_title,image_id');
+        const data = await response.json();
+        const randomArt = data.data[Math.floor(Math.random() * data.data.length)];
+        
+        const tituloTraducido = await traducirAlEspañol(randomArt.title);
+        const iiifUrl = `https://www.artic.edu/iiif/2/${randomArt.image_id}/full/843,/0/default.jpg`;
+        
+        userImgUrlInput.value = iiifUrl;
+        userUploadedImageData = null; 
+        document.getElementById('artworkName').value = tituloTraducido;
+        document.getElementById('artistName').value = randomArt.artist_title || "Anónimo";
+        
+        randomArtBtn.textContent = "🎨 ¡Arte Cargado!";
+        setTimeout(() => { 
+            randomArtBtn.textContent = "🎨 Buscar Arte Aleatorio (API)"; 
+            randomArtBtn.disabled = false; 
+        }, 2000);
+    } catch (e) {
+        alert("Error al conectar con la API.");
+        randomArtBtn.disabled = false;
+    }
+});
+
 shuffleBtn.addEventListener('click', () => {
     shuffleSeed = Math.floor(Math.random() * 1000);
     generateBtn.click();
@@ -72,7 +117,7 @@ function populateDaySelector() {
     daySelector.disabled = false;
 }
 
-// 2. GENERACIÓN PRINCIPAL
+// 3. GENERACIÓN PRINCIPAL
 generateBtn.addEventListener('click', async () => {
     const selectedKey = daySelector.value;
     const events = currentJsonData[selectedKey];
@@ -87,7 +132,7 @@ generateBtn.addEventListener('click', async () => {
     if (imgSource) {
         try {
             const img = await loadImage(imgSource);
-            extractedPalette = extractStrictPalette(img);
+            extractedPalette = extractStrictPalette(img, pastelModeCheckbox.checked); // Pasar flag de pastel
         } catch (e) { console.error("Error en paleta", e); }
     }
 
@@ -110,7 +155,8 @@ generateBtn.addEventListener('click', async () => {
     const titleCanvas = await createTitleImage(displayDay, imgSource, portBg, portText, portTitle, {
         free: document.getElementById('imageSourceText').value, 
         work: document.getElementById('artworkName').value, 
-        artist: document.getElementById('artistName').value
+        artist: document.getElementById('artistName').value,
+        onlyArtist: document.getElementById('onlyArtistName')?.checked || false
     }, alignMode, isColorful, shuffleSeed);
     renderCanvas(titleCanvas, "00_portada");
 
@@ -138,7 +184,7 @@ generateBtn.addEventListener('click', async () => {
     downloadAllBtn.style.display = 'block';
 });
 
-// 3. MOTOR DE PATRONES TOTAL (12 Variantes)
+// 4. MOTOR DE GRÁFICOS Y PATRONES
 async function drawBackground(ctx, width, height, color, usePattern, seed) {
     ctx.fillStyle = color;
     ctx.fillRect(0, 0, width, height);
@@ -146,7 +192,6 @@ async function drawBackground(ctx, width, height, color, usePattern, seed) {
     if (usePattern) {
         const hsl = hexToHsl(color);
         const patternColor = hslToHex(hsl.h, hsl.s, hsl.l > 0.5 ? hsl.l - 0.18 : hsl.l + 0.18);
-        
         ctx.save();
         ctx.strokeStyle = patternColor;
         ctx.fillStyle = patternColor;
@@ -156,76 +201,21 @@ async function drawBackground(ctx, width, height, color, usePattern, seed) {
         const spacing = 50;
 
         switch(patternType) {
-            case 0: // Líneas rectas horizontales
-                for(let i=0; i<height; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); }
-                break;
-            case 1: // Líneas oblicuas (derecha)
-                for(let i=-height; i<width; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i+height, height); ctx.stroke(); }
-                break;
-            case 2: // Líneas oblicuas (izquierda)
-                for(let i=0; i<width+height; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i-height, height); ctx.stroke(); }
-                break;
-            case 3: // Cuadrícula (Grid)
-                for(let i=0; i<width; i+=spacing) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.stroke(); }
-                for(let i=0; i<height; i+=spacing) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); }
-                break;
-            case 4: // Círculos (Dots)
-                for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill(); } }
-                break;
-            case 5: // Triángulos
-                for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+15, y+30); ctx.lineTo(x-15, y+30); ctx.closePath(); ctx.fill(); } }
-                break;
-            case 6: // Cruces (+)
-                for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(x-10,y); ctx.lineTo(x+10,y); ctx.moveTo(x,y-10); ctx.lineTo(x,y+10); ctx.stroke(); } }
-                break;
-            case 7: // Hexágonos
-                for(let x=0; x<width; x+=80) { for(let y=0; y<height; y+=70) { const ox = x + (y%140==0?0:40); ctx.beginPath(); for(let a=0; a<6; a++) { ctx.lineTo(ox+20*Math.cos(a*Math.PI/3), y+20*Math.sin(a*Math.PI/3)); } ctx.closePath(); ctx.stroke(); } }
-                break;
-            case 8: // Zig-Zag
-                ctx.lineWidth = 3; for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(0, y); for(let x=0; x<width; x+=20) { ctx.lineTo(x, y + (x%40==0?15:-15)); } ctx.stroke(); }
-                break;
-            case 9: // Rombos
-                for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.strokeRect(-12,-12,24,24); ctx.restore(); } }
-                break;
-            case 10: // Cuadrados rellenos pequeños
-                for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.fillRect(x, y, 10, 10); } }
-                break;
-            case 11: // Ondas (Seno)
-                for(let y=0; y<height; y+=spacing) { ctx.beginPath(); for(let x=0; x<width; x+=5) { ctx.lineTo(x, y + Math.sin(x*0.05)*10); } ctx.stroke(); }
-                break;
+            case 0: for(let i=0; i<height; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); } break;
+            case 1: for(let i=-height; i<width; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i+height, height); ctx.stroke(); } break;
+            case 2: for(let i=0; i<width+height; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i-height, height); ctx.stroke(); } break;
+            case 3: for(let i=0; i<width; i+=spacing) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.stroke(); } for(let i=0; i<height; i+=spacing) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); } break;
+            case 4: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill(); } } break;
+            case 5: for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+15, y+30); ctx.lineTo(x-15, y+30); ctx.closePath(); ctx.fill(); } } break;
+            case 6: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(x-10,y); ctx.lineTo(x+10,y); ctx.moveTo(x,y-10); ctx.lineTo(x,y+10); ctx.stroke(); } } break;
+            case 7: for(let x=0; x<width; x+=80) { for(let y=0; y<height; y+=70) { const ox = x + (y%140==0?0:40); ctx.beginPath(); for(let a=0; a<6; a++) { ctx.lineTo(ox+20*Math.cos(a*Math.PI/3), y+20*Math.sin(a*Math.PI/3)); } ctx.closePath(); ctx.stroke(); } } break;
+            case 8: ctx.lineWidth = 3; for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(0, y); for(let x=0; x<width; x+=20) { ctx.lineTo(x, y + (x%40==0?15:-15)); } ctx.stroke(); } break;
+            case 9: for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.strokeRect(-12,-12,24,24); ctx.restore(); } } break;
+            case 10: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.fillRect(x, y, 10, 10); } } break;
+            case 11: for(let y=0; y<height; y+=spacing) { ctx.beginPath(); for(let x=0; x<width; x+=5) { ctx.lineTo(x, y + Math.sin(x*0.05)*10); } ctx.stroke(); } break;
         }
         ctx.restore();
     }
-
-    try {
-        const grungeImg = await loadImage('grunge.png');
-        ctx.globalCompositeOperation = isColorDark(color) ? "screen" : "multiply";
-        ctx.globalAlpha = 0.12;
-        ctx.drawImage(grungeImg, 0, 0, width, height);
-        ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1.0;
-    } catch (e) {}
-}
-
-// 4. FUNCIONES DE APOYO
-function extractStrictPalette(img) {
-    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
-    canvas.width = 50; canvas.height = 50; ctx.drawImage(img, 0, 0, 50, 50);
-    const data = ctx.getImageData(0, 0, 50, 50).data;
-    let colors = [];
-    for (let i = 0; i < data.length; i += 20) {
-        let hsl = rgbToHsl(data[i], data[i+1], data[i+2]);
-        if (hsl.s > 0.15 && hsl.l > 0.1 && hsl.l < 0.9) colors.push(hsl);
-    }
-    colors.sort((a, b) => b.s - a.s);
-    let uniqueHues = colors.filter((c, i, self) => self.findIndex(t => Math.abs(t.h - c.h) < 0.08) === i);
-    if (uniqueHues.length < 2) {
-        let base = uniqueHues[0] || {h: 0, s: 0.5, l: 0.5};
-        uniqueHues = Array.from({length:5}, (_,i) => ({h:(base.h+i*0.2)%1, s:base.s, l:base.l}));
-    }
-    return {
-        accents: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, c.s, c.l)),
-        backgrounds: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, 0.1, 0.96))
-    };
 }
 
 async function createTitleImage(day, imgSource, bgColor, textColor, titleColor, credits, align, isColorful, seed) {
@@ -253,12 +243,16 @@ async function createTitleImage(day, imgSource, bgColor, textColor, titleColor, 
             ctx.drawImage(img, dX, dY, dW, dH); ctx.restore();
 
             ctx.fillStyle = textColor; ctx.globalAlpha = 0.6; ctx.font = '20px Cousine';
-            let cText = credits.work ? `"${credits.work}"` : (credits.free || "");
-            if(credits.artist) cText += ` por ${credits.artist}`;
+            let cText = "";
+            if (credits.onlyArtist && credits.artist) {
+                cText = credits.artist;
+            } else {
+                cText = credits.work ? `"${credits.work}"` : (credits.free || "");
+                if (credits.artist) cText += ` por ${credits.artist}`;
+            }
             ctx.fillText(cText, 540, 1120); ctx.globalAlpha = 1.0;
-        } catch (e) {}
+        } catch (e) { console.error("Error imagen:", e); }
     }
-    // Modificado para pasar el color del texto
     await drawBannerFooter(ctx, canvas.width, canvas.height, textColor);
     return canvas;
 }
@@ -284,51 +278,57 @@ async function createEventImage(event, bgColor, textColor, accentColor, isColorf
     return canvas;
 }
 
-// Helpers técnicos
+// 5. HELPERS Y UTILIDADES
 function isColorDark(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 130; 
 }
 
-// Modificado para elegir el banner según el color del texto
 async function drawBannerFooter(ctx, canvasWidth, canvasHeight, textColor) {
     try {
         const bannerFile = isColorDark(textColor) ? 'banner.png' : 'banner_blanco.png';
         const banner = await loadImage(bannerFile);
         const bannerW = canvasWidth; const bannerH = banner.height * (bannerW / banner.width);
         ctx.drawImage(banner, 0, canvasHeight - bannerH, bannerW, bannerH);
-    } catch (e) {
-        console.error("Error cargando banner:", e);
-    }
+    } catch (e) { console.error("Banner error:", e); }
 }
 
-function hexToHsl(hex) {
-    let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return rgbToHsl(r, g, b);
-}
-function rgbToHsl(r, g, b) {
-    r /= 255; g /= 255; b /= 255;
-    const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, l = (max + min) / 2;
-    if (max === min) h = s = 0;
-    else {
-        const d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
-        else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4;
-        h /= 6;
+function extractStrictPalette(img, makePastel = false) {
+    const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
+    canvas.width = 50; canvas.height = 50; ctx.drawImage(img, 0, 0, 50, 50);
+    const data = ctx.getImageData(0, 0, 50, 50).data;
+    let colors = [];
+    for (let i = 0; i < data.length; i += 20) {
+        let hsl = rgbToHsl(data[i], data[i+1], data[i+2]);
+        if (hsl.s > 0.1 && hsl.l > 0.05 && hsl.l < 0.95) colors.push(hsl);
     }
-    return { h, s, l };
-}
-function hslToHex(h, s, l) {
-    const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q;
-    const f = (p, q, t) => {
-        if (t < 0) t += 1; if (t > 1) t -= 1;
-        if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q;
-        if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p;
+    colors.sort((a, b) => b.s - a.s);
+    let uniqueHues = colors.filter((c, i, self) => self.findIndex(t => Math.abs(t.h - c.h) < 0.1) === i);
+    
+    // Si no hay suficientes colores, generar basados en el primero
+    if (uniqueHues.length < 2) {
+        let base = uniqueHues[0] || {h: 0.1, s: 0.5, l: 0.5};
+        uniqueHues = Array.from({length:5}, (_,i) => ({h:(base.h+i*0.2)%1, s:base.s, l:base.l}));
+    }
+
+    // Lógica Pastel: Ajustar Saturación y Luminosidad para que sean "Pastel Vibrante"
+    if (makePastel) {
+        uniqueHues = uniqueHues.map(c => ({
+            h: c.h,
+            s: 0.7, // Saturación alta para que sea vibrante
+            l: 0.85 // Luminosidad alta para que sea pastel
+        }));
+    }
+
+    return {
+        accents: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, c.s, c.l)),
+        backgrounds: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, 0.15, 0.96))
     };
-    const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0');
-    return `#${toHex(f(p,q,h+1/3))}${toHex(f(p,q,h))}${toHex(f(p,q,h-1/3))}`;
 }
+
+function hexToHsl(hex) { let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16); return rgbToHsl(r, g, b); }
+function rgbToHsl(r, g, b) { r /= 255; g /= 255; b /= 255; const max = Math.max(r, g, b), min = Math.min(r, g, b); let h, s, l = (max + min) / 2; if (max === min) h = s = 0; else { const d = max - min; s = l > 0.5 ? d / (2 - max - min) : d / (max + min); if (max === r) h = (g - b) / d + (g < b ? 6 : 0); else if (max === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; } return { h, s, l }; }
+function hslToHex(h, s, l) { const q = l < 0.5 ? l * (1 + s) : l + s - l * s; const p = 2 * l - q; const f = (p, q, t) => { if (t < 0) t += 1; if (t > 1) t -= 1; if (t < 1/6) return p + (q - p) * 6 * t; if (t < 1/2) return q; if (t < 2/3) return p + (q - p) * (2/3 - t) * 6; return p; }; const toHex = x => Math.round(x * 255).toString(16).padStart(2, '0'); return `#${toHex(f(p,q,h+1/3))}${toHex(f(p,q,h))}${toHex(f(p,q,h-1/3))}`; }
 function loadImage(url) { return new Promise((res, rej) => { const img = new Image(); img.crossOrigin = "anonymous"; img.onload = () => res(img); img.onerror = rej; img.src = url; }); }
 function wrapText(ctx, text, x, y, maxWidth, lineHeight) { if(!text) return y; const words = text.split(' '); let line = ''; for(let n=0; n<words.length; n++) { let test = line + words[n] + ' '; if (ctx.measureText(test).width > maxWidth && n > 0) { ctx.fillText(line, x, y); line = words[n] + ' '; y += lineHeight; } else line = test; } ctx.fillText(line, x, y); return y + lineHeight; }
 function renderCanvas(canvas, filename) { const wrapper = document.createElement('div'); wrapper.className = 'canvas-wrapper'; canvas.onclick = () => { const link = document.createElement('a'); link.download = `${filename}.png`; link.href = canvas.toDataURL(); link.click(); }; wrapper.appendChild(canvas); canvasContainer.appendChild(wrapper); }
