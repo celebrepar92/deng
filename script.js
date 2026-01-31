@@ -1,7 +1,7 @@
 /**
- * Generador de Agenda #ElFinde - Versión Final Consolidada
- * Incluye: Selección de banner dinámico, API de Arte, Traducción Automática,
- * Créditos simplificados y Modo Pastel Vibrante.
+ * Generador de Agenda #ElFinde - Versión Pro
+ * Solución: Corrección de API Cleveland, Tercera API (Rijksmuseum) 
+ * y ajuste de cobertura en patrones geométricos.
  */
 
 let currentJsonData = null;
@@ -13,6 +13,55 @@ let extractedPalette = {
     accents: ["#ff4757", "#2f3542", "#747d8c", "#57606f", "#ffa502"],
     backgrounds: ["#fff0f0", "#f1f2f6", "#dfe4ea", "#f5f6fa", "#ffffff"]
 };
+
+// Configuración de APIs de Arte (3 fuentes)
+const artApis = [
+    {
+        name: "Art Institute of Chicago",
+        url: 'https://api.artic.edu/api/v1/artworks/search?query[term][is_public_domain]=true&limit=50&fields=id,title,artist_title,image_id',
+        parse: (data) => {
+            const items = data.data.filter(item => item.image_id);
+            const item = items[Math.floor(Math.random() * items.length)];
+            return { 
+                title: item.title, 
+                artist: item.artist_title || "Anónimo", 
+                img: `https://www.artic.edu/iiif/2/${item.image_id}/full/843,/0/default.jpg` 
+            };
+        }
+    },
+    {
+        name: "Cleveland Museum of Art",
+        url: 'https://openaccess-api.clevelandart.org/api/artworks/?has_image=1&limit=50&type=Painting',
+        parse: (data) => {
+            // Filtrar elementos que tengan la estructura de imagen correcta
+            const items = data.data.filter(item => item.images && item.images.web && item.images.web.url);
+            const item = items[Math.floor(Math.random() * items.length)];
+            return { 
+                title: item.title, 
+                artist: item.creators?.[0]?.description || "Anónimo", 
+                img: item.images.web.url 
+            };
+        }
+    },
+    {
+        name: "Rijksmuseum (Ámsterdam)",
+        url: 'https://www.rijksmuseum.nl/api/en/collection?key=fp9sH49Y&ps=50&imgonly=True&type=painting',
+        parse: (data) => {
+            const item = data.artObjects[Math.floor(Math.random() * data.artObjects.length)];
+            return {
+                title: item.title,
+                artist: item.principalOrFirstMaker || "Anónimo",
+                img: item.webImage.url.replace('s0', 'w800') // Optimizar tamaño
+            };
+        }
+    }
+];
+
+const PATTERN_TYPES = [
+    "Líneas Horizontales", "Diagonales Asc", "Diagonales Desc", "Cuadrícula", 
+    "Puntos", "Triángulos", "Cruces", "Hexágonos", "ZigZag", "Diamantes", 
+    "Ladrillos", "Ondas Marinas", "Estrellas", "Rayos"
+];
 
 // Elementos del DOM
 const jsonFileInput = document.getElementById('jsonFile');
@@ -32,8 +81,19 @@ const shuffleBtn = document.getElementById('shuffleBtn');
 const canvasContainer = document.getElementById('canvasContainer');
 const downloadAllBtn = document.getElementById('downloadAllBtn');
 const pastelModeCheckbox = document.getElementById('pastelMode');
+const patternSwitchesContainer = document.getElementById('patternSwitches');
 
-// 1. GESTIÓN DE EVENTOS Y ARCHIVOS
+// Inicializar menú de patrones
+if (patternSwitchesContainer) {
+    patternSwitchesContainer.innerHTML = '';
+    PATTERN_TYPES.forEach((name, i) => {
+        const div = document.createElement('div');
+        div.innerHTML = `<label style="font-weight:normal; font-size:1em;"><input type="checkbox" class="pattern-toggle" value="${i}" checked> ${name}</label>`;
+        patternSwitchesContainer.appendChild(div);
+    });
+}
+
+// 1. GESTIÓN DE EVENTOS
 jsonFileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -60,43 +120,39 @@ userImageFileInput.addEventListener('change', (e) => {
     reader.readAsDataURL(file);
 });
 
-// 2. LÓGICA DE TRADUCCIÓN Y API DE ARTE
 async function traducirAlEspañol(texto) {
-    if (!texto) return "";
+    if (!texto || texto === "Anónimo") return texto;
     try {
         const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(texto)}&langpair=en|es`;
         const response = await fetch(url);
         const data = await response.json();
         return data.responseData.translatedText || texto;
-    } catch (e) {
-        console.error("Error en traducción:", e);
-        return texto;
-    }
+    } catch (e) { return texto; }
 }
 
 randomArtBtn.addEventListener('click', async () => {
-    randomArtBtn.textContent = "⌛ Buscando y Traduciendo...";
+    randomArtBtn.textContent = "⌛ Buscando Arte...";
     randomArtBtn.disabled = true;
     try {
-        const response = await fetch('https://api.artic.edu/api/v1/artworks/search?query[term][is_public_domain]=true&limit=100&fields=id,title,artist_title,image_id');
+        const api = artApis[Math.floor(Math.random() * artApis.length)];
+        const response = await fetch(api.url);
         const data = await response.json();
-        const randomArt = data.data[Math.floor(Math.random() * data.data.length)];
+        const art = api.parse(data);
         
-        const tituloTraducido = await traducirAlEspañol(randomArt.title);
-        const iiifUrl = `https://www.artic.edu/iiif/2/${randomArt.image_id}/full/843,/0/default.jpg`;
-        
-        userImgUrlInput.value = iiifUrl;
+        const tituloTraducido = await traducirAlEspañol(art.title);
+        userImgUrlInput.value = art.img;
         userUploadedImageData = null; 
         document.getElementById('artworkName').value = tituloTraducido;
-        document.getElementById('artistName').value = randomArt.artist_title || "Anónimo";
+        document.getElementById('artistName').value = art.artist;
         
-        randomArtBtn.textContent = "🎨 ¡Arte Cargado!";
+        randomArtBtn.textContent = `🎨 De: ${api.name}`;
         setTimeout(() => { 
             randomArtBtn.textContent = "🎨 Buscar Arte Aleatorio (API)"; 
             randomArtBtn.disabled = false; 
         }, 2000);
     } catch (e) {
-        alert("Error al conectar con la API.");
+        console.error(e);
+        alert("Error al conectar con las APIs de arte.");
         randomArtBtn.disabled = false;
     }
 });
@@ -117,8 +173,54 @@ function populateDaySelector() {
     daySelector.disabled = false;
 }
 
+// 2. MOTOR DE GRÁFICOS Y PATRONES
+async function drawBackground(ctx, width, height, color, usePattern, seed) {
+    ctx.fillStyle = color;
+    ctx.fillRect(0, 0, width, height);
+
+    if (usePattern) {
+        const toggles = document.querySelectorAll('.pattern-toggle:checked');
+        const activePatterns = Array.from(toggles).map(el => parseInt(el.value));
+        if (activePatterns.length === 0) return;
+
+        const patternType = activePatterns[seed % activePatterns.length];
+        const hsl = hexToHsl(color);
+        const patternColor = hslToHex(hsl.h, hsl.s, hsl.l > 0.5 ? hsl.l - 0.18 : hsl.l + 0.18);
+        
+        ctx.save();
+        ctx.strokeStyle = patternColor;
+        ctx.fillStyle = patternColor;
+        ctx.globalAlpha = 0.25;
+        const spacing = 60;
+
+        switch(patternType) {
+            case 0: for(let i=0; i<height; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); } break;
+            case 1: for(let i=-height; i<width; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i+height, height); ctx.stroke(); } break;
+            case 2: for(let i=0; i<width+height; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i-height, height); ctx.stroke(); } break;
+            case 3: for(let i=0; i<width; i+=spacing) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.stroke(); } for(let i=0; i<height; i+=spacing) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); } break;
+            case 4: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill(); } } break;
+            case 5: // Triángulos CORREGIDO: Añadido margen extra para cubrir bordes derechos
+                for(let x=-30; x<width+spacing; x+=60) { 
+                    for(let y=-30; y<height+spacing; y+=60) { 
+                        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+15, y+30); ctx.lineTo(x-15, y+30); ctx.closePath(); ctx.fill(); 
+                    } 
+                } break;
+            case 6: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(x-10,y); ctx.lineTo(x+10,y); ctx.moveTo(x,y-10); ctx.lineTo(x,y+10); ctx.stroke(); } } break;
+            case 7: for(let x=0; x<width; x+=80) { for(let y=0; y<height; y+=70) { const ox = x + (y%140==0?0:40); ctx.beginPath(); for(let a=0; a<6; a++) { ctx.lineTo(ox+20*Math.cos(a*Math.PI/3), y+20*Math.sin(a*Math.PI/3)); } ctx.closePath(); ctx.stroke(); } } break;
+            case 8: ctx.lineWidth = 3; for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(0, y); for(let x=0; x<width; x+=20) { ctx.lineTo(x, y + (x%40==0?15:-15)); } ctx.stroke(); } break;
+            case 9: for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.strokeRect(-12,-12,24,24); ctx.restore(); } } break;
+            case 10: for(let y=0; y<height+30; y+=30) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(width,y); ctx.stroke(); let offset = (Math.round(y/30) % 2 === 0) ? 0 : 25; for(let x=offset-50; x<width+50; x+=50) { ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x,y+30); ctx.stroke(); } } break;
+            case 11: for(let y=0; y<height+40; y+=40) { ctx.beginPath(); for(let x=0; x<width+10; x+=10) { ctx.lineTo(x, y + Math.sin(x*0.05)*10); } ctx.stroke(); } break;
+            case 12: for(let x=0; x<width+70; x+=70) { for(let y=0; y<height+70; y+=70) { ctx.beginPath(); for(let i=0; i<5; i++) { ctx.lineTo(x+15*Math.cos(i*4*Math.PI/5), y+15*Math.sin(i*4*Math.PI/5)); } ctx.closePath(); ctx.fill(); } } break;
+            case 13: for(let x=0; x<width+100; x+=100) { for(let y=0; y<height+100; y+=100) { for(let i=0; i<8; i++) { ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+Math.cos(i*Math.PI/4)*25, y+Math.sin(i*Math.PI/4)*25); ctx.stroke(); } } } break;
+        }
+        ctx.restore();
+    }
+}
+
 // 3. GENERACIÓN PRINCIPAL
 generateBtn.addEventListener('click', async () => {
+    if (!currentJsonData) return;
     const selectedKey = daySelector.value;
     const events = currentJsonData[selectedKey];
     const displayDay = dayTextInput.value || selectedKey;
@@ -132,14 +234,13 @@ generateBtn.addEventListener('click', async () => {
     if (imgSource) {
         try {
             const img = await loadImage(imgSource);
-            extractedPalette = extractStrictPalette(img, pastelModeCheckbox.checked); // Pasar flag de pastel
+            extractedPalette = extractStrictPalette(img, pastelModeCheckbox.checked);
         } catch (e) { console.error("Error en paleta", e); }
     }
 
     // --- PORTADA ---
     let portBg, portText, portTitle;
     const portColorIdx = shuffleSeed % extractedPalette.accents.length;
-
     if (isColorful) {
         portBg = extractedPalette.accents[portColorIdx];
         portText = isColorDark(portBg) ? "#ffffff" : "#000000";
@@ -164,7 +265,6 @@ generateBtn.addEventListener('click', async () => {
     events.forEach(async (event, index) => {
         const colorIdx = (index + shuffleSeed + 1) % extractedPalette.accents.length;
         let evBg, evAccent, evText;
-
         if (isColorful) {
             evBg = extractedPalette.accents[colorIdx];
             evText = isColorDark(evBg) ? "#ffffff" : "#000000";
@@ -175,7 +275,6 @@ generateBtn.addEventListener('click', async () => {
             evAccent = isManualColorUsed ? manualAccentColorInput.value : extractedPalette.accents[colorIdx];
             evText = isColorDark(evBg) ? "#ffffff" : "#000000";
         }
-
         const eventCanvas = await createEventImage(event, evBg, evText, evAccent, isColorful, index + shuffleSeed + 7);
         renderCanvas(eventCanvas, `evento_${index + 1}`);
     });
@@ -183,40 +282,6 @@ generateBtn.addEventListener('click', async () => {
     canvasContainer.querySelector('h3').remove();
     downloadAllBtn.style.display = 'block';
 });
-
-// 4. MOTOR DE GRÁFICOS Y PATRONES
-async function drawBackground(ctx, width, height, color, usePattern, seed) {
-    ctx.fillStyle = color;
-    ctx.fillRect(0, 0, width, height);
-
-    if (usePattern) {
-        const hsl = hexToHsl(color);
-        const patternColor = hslToHex(hsl.h, hsl.s, hsl.l > 0.5 ? hsl.l - 0.18 : hsl.l + 0.18);
-        ctx.save();
-        ctx.strokeStyle = patternColor;
-        ctx.fillStyle = patternColor;
-        ctx.globalAlpha = 0.25;
-
-        const patternType = seed % 12; 
-        const spacing = 50;
-
-        switch(patternType) {
-            case 0: for(let i=0; i<height; i+=40) { ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(width, i); ctx.stroke(); } break;
-            case 1: for(let i=-height; i<width; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i+height, height); ctx.stroke(); } break;
-            case 2: for(let i=0; i<width+height; i+=40) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i-height, height); ctx.stroke(); } break;
-            case 3: for(let i=0; i<width; i+=spacing) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,height); ctx.stroke(); } for(let i=0; i<height; i+=spacing) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(width,i); ctx.stroke(); } break;
-            case 4: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill(); } } break;
-            case 5: for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x+15, y+30); ctx.lineTo(x-15, y+30); ctx.closePath(); ctx.fill(); } } break;
-            case 6: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(x-10,y); ctx.lineTo(x+10,y); ctx.moveTo(x,y-10); ctx.lineTo(x,y+10); ctx.stroke(); } } break;
-            case 7: for(let x=0; x<width; x+=80) { for(let y=0; y<height; y+=70) { const ox = x + (y%140==0?0:40); ctx.beginPath(); for(let a=0; a<6; a++) { ctx.lineTo(ox+20*Math.cos(a*Math.PI/3), y+20*Math.sin(a*Math.PI/3)); } ctx.closePath(); ctx.stroke(); } } break;
-            case 8: ctx.lineWidth = 3; for(let y=0; y<height; y+=spacing) { ctx.beginPath(); ctx.moveTo(0, y); for(let x=0; x<width; x+=20) { ctx.lineTo(x, y + (x%40==0?15:-15)); } ctx.stroke(); } break;
-            case 9: for(let x=0; x<width; x+=60) { for(let y=0; y<height; y+=60) { ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4); ctx.strokeRect(-12,-12,24,24); ctx.restore(); } } break;
-            case 10: for(let x=0; x<width; x+=spacing) { for(let y=0; y<height; y+=spacing) { ctx.fillRect(x, y, 10, 10); } } break;
-            case 11: for(let y=0; y<height; y+=spacing) { ctx.beginPath(); for(let x=0; x<width; x+=5) { ctx.lineTo(x, y + Math.sin(x*0.05)*10); } ctx.stroke(); } break;
-        }
-        ctx.restore();
-    }
-}
 
 async function createTitleImage(day, imgSource, bgColor, textColor, titleColor, credits, align, isColorful, seed) {
     const canvas = document.createElement('canvas'); canvas.width = 1080; canvas.height = 1350;
@@ -244,9 +309,8 @@ async function createTitleImage(day, imgSource, bgColor, textColor, titleColor, 
 
             ctx.fillStyle = textColor; ctx.globalAlpha = 0.6; ctx.font = '20px Cousine';
             let cText = "";
-            if (credits.onlyArtist && credits.artist) {
-                cText = credits.artist;
-            } else {
+            if (credits.onlyArtist && credits.artist) { cText = credits.artist; } 
+            else {
                 cText = credits.work ? `"${credits.work}"` : (credits.free || "");
                 if (credits.artist) cText += ` por ${credits.artist}`;
             }
@@ -262,7 +326,7 @@ async function createEventImage(event, bgColor, textColor, accentColor, isColorf
     const ctx = canvas.getContext('2d');
     await drawBackground(ctx, canvas.width, canvas.height, bgColor, isColorful, seed);
     ctx.strokeStyle = accentColor; ctx.lineWidth = 20; ctx.strokeRect(40, 40, 1000, 1270);
-    ctx.fillStyle = accentColor; ctx.font = 'bold 35px Cousine';
+    ctx.fillStyle = accentColor; ctx.textAlign = 'left'; ctx.font = 'bold 35px Cousine';
     ctx.fillText(`[ ${event.categoria.toUpperCase()} ]`, 100, 150);
     ctx.fillStyle = textColor; ctx.font = 'bold 65px Cousine';
     let currentY = wrapText(ctx, event.nombre, 100, 250, 880, 75);
@@ -278,7 +342,7 @@ async function createEventImage(event, bgColor, textColor, accentColor, isColorf
     return canvas;
 }
 
-// 5. HELPERS Y UTILIDADES
+// 4. HELPERS
 function isColorDark(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 130; 
@@ -304,22 +368,11 @@ function extractStrictPalette(img, makePastel = false) {
     }
     colors.sort((a, b) => b.s - a.s);
     let uniqueHues = colors.filter((c, i, self) => self.findIndex(t => Math.abs(t.h - c.h) < 0.1) === i);
-    
-    // Si no hay suficientes colores, generar basados en el primero
     if (uniqueHues.length < 2) {
         let base = uniqueHues[0] || {h: 0.1, s: 0.5, l: 0.5};
         uniqueHues = Array.from({length:5}, (_,i) => ({h:(base.h+i*0.2)%1, s:base.s, l:base.l}));
     }
-
-    // Lógica Pastel: Ajustar Saturación y Luminosidad para que sean "Pastel Vibrante"
-    if (makePastel) {
-        uniqueHues = uniqueHues.map(c => ({
-            h: c.h,
-            s: 0.7, // Saturación alta para que sea vibrante
-            l: 0.85 // Luminosidad alta para que sea pastel
-        }));
-    }
-
+    if (makePastel) uniqueHues = uniqueHues.map(c => ({ h: c.h, s: 0.7, l: 0.85 }));
     return {
         accents: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, c.s, c.l)),
         backgrounds: uniqueHues.slice(0, 5).map(c => hslToHex(c.h, 0.15, 0.96))
