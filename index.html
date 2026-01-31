@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DENG - Generador de publicaciones - Agenda #ElFinde</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Cousine:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+</head>
+<body>
+
+    <header>
+        <h1>DENG</h1>
+    </header>
+
+    <main>
+        <section id="controls">
+            <div class="control-group">
+                <label>1. Subir archivo JSON:</label>
+                <input type="file" id="jsonFile" accept=".json">
+            </div>
+
+            <div class="control-group">
+                <label>2. Foto de Portada:</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                    <input type="text" id="userImageUrl" placeholder="URL de la imagen...">
+                    <input type="file" id="userImageFile" accept="image/*" style="display:none">
+                    <button type="button" onclick="document.getElementById('userImageFile').click()" style="width: auto; font-size: 0.8em; background: #555;">Subir archivo</button>
+                </div>
+                <small id="fileNameDisplay" style="display: block; margin-bottom: 10px; font-size: 0.7em; color: #666;"></small>
+                
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.8em;">Alineación de la foto:</label>
+                    <select id="imageAlign">
+                        <option value="center">Centro (Default)</option>
+                        <option value="top">Arriba</option>
+                        <option value="bottom">Abajo</option>
+                        <option value="left">Izquierda</option>
+                        <option value="right">Derecha</option>
+                    </select>
+                </div>
+
+                <div class="credits-container" style="border-top: 1px solid #eee; padding-top: 10px;">
+                    <label style="font-size: 0.85em;">Créditos de la imagen:</label>
+                    <input type="text" id="imageSourceText" placeholder="Crédito libre (ej: Foto de Archivo)" style="margin-bottom: 8px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                        <input type="text" id="artworkName" placeholder="Nombre de la Obra">
+                        <input type="text" id="artistName" placeholder="Nombre del Artista">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <label>3. Texto del Día (Manual):</label>
+                <input type="text" id="dayText" placeholder="Ej: Sábado 31 de Enero">
+            </div>
+
+            <div class="control-group">
+                <label>4. Seleccionar Día del JSON:</label>
+                <select id="daySelector" disabled>
+                    <option>Sube un JSON primero...</option>
+                </select>
+            </div>
+
+            <div class="control-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div>
+                    <label>5. Color Fondo (Global):</label>
+                    <div style="display: flex; gap: 5px;">
+                        <select id="bgColorSelector" style="flex: 2;">
+                            <option value="colorful" selected>Fondo Colorido (Imagen)</option>
+                            <option value="lightAccent">Automático Claro</option>
+                            <option value="custom">Color Manual ➔</option>
+                            <option value="#000000">Negro</option>
+                            <option value="#ffffff">Blanco</option>
+                        </select>
+                        <input type="color" id="manualBgColor" value="#ffffff" style="flex: 1; height: 40px; padding: 2px;">
+                    </div>
+                </div>
+                <div>
+                    <label>6. Color Acento (Eventos):</label>
+                    <input type="color" id="manualAccentColor" value="#ff4757" style="height: 40px; padding: 2px;">
+                </div>
+            </div>
+
+            <button id="shuffleBtn" type="button" style="background-color: #57606f; margin-bottom: 15px;">
+                🔀 Mezclar Colores y Patrones
+            </button>
+
+            <div class="control-group">
+                <label>7. Color Especial Título (Solo Portada):</label>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="checkbox" id="useSpecialTitleColor" style="width: auto;">
+                    <input type="color" id="specialTitleColor" value="#ff4757" style="height: 40px; padding: 2px;">
+                    <small>Usar color personalizado para el título</small>
+                </div>
+            </div>
+
+            <button id="generateBtn" disabled>Generar Galería</button>
+            <button id="downloadAllBtn" style="display:none; margin-top:10px; background-color: #2f3542;">Descargar Todo (.ZIP)</button>
+        </section>
+
+        <section id="preview-area">
+            <h3>Galería de Imágenes</h3>
+            <div id="canvasContainer"></div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>

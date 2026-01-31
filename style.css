@@ -1,0 +1,84 @@
+:root {
+    --bg-color: #f4f4f4;
+    --primary-color: #333;
+    --accent-color: #ff4757;
+    --canvas-bg: #ffffff;
+}
+
+body {
+    font-family: 'Cousine', monospace;
+    background-color: var(--bg-color);
+    margin: 0;
+    padding: 20px;
+}
+
+header { text-align: center; margin-bottom: 30px; }
+
+#controls {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 600px;
+    margin: 0 auto 30px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+.control-group { margin-bottom: 15px; }
+
+label { display: block; font-weight: bold; margin-bottom: 5px; }
+
+input, select, button {
+    width: 100%;
+    padding: 10px;
+    font-family: 'Cousine', monospace;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 1.1em;
+    transition: background 0.3s;
+}
+
+button:hover { opacity: 0.9; }
+
+button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+#canvasContainer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    padding: 20px;
+}
+
+.canvas-wrapper {
+    background: white;
+    padding: 10px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    border-radius: 4px;
+    text-align: center;
+}
+
+canvas {
+    border: 1px solid #eee;
+    max-width: 300px; /* Tamaño de vista previa */
+    height: auto;
+    display: block;
+}
+
+select {
+    cursor: pointer;
+    background-color: #fff;
+}
+
+#preview-area h3 {
+    text-align: center;
+    color: var(--primary-color);
+}
