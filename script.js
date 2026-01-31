@@ -93,7 +93,6 @@ generateBtn.addEventListener('click', async () => {
 
     // --- PORTADA ---
     let portBg, portText, portTitle;
-    // Usamos el seed para la portada
     const portColorIdx = shuffleSeed % extractedPalette.accents.length;
 
     if (isColorful) {
@@ -117,7 +116,6 @@ generateBtn.addEventListener('click', async () => {
 
     // --- EVENTOS ---
     events.forEach(async (event, index) => {
-        // Añadimos +1 al índice para que la primera imagen no coincida con el color de la portada
         const colorIdx = (index + shuffleSeed + 1) % extractedPalette.accents.length;
         let evBg, evAccent, evText;
 
@@ -208,7 +206,7 @@ async function drawBackground(ctx, width, height, color, usePattern, seed) {
     } catch (e) {}
 }
 
-// 4. FUNCIONES DE APOYO (RESTAURADAS)
+// 4. FUNCIONES DE APOYO
 function extractStrictPalette(img) {
     const canvas = document.createElement('canvas'); const ctx = canvas.getContext('2d');
     canvas.width = 50; canvas.height = 50; ctx.drawImage(img, 0, 0, 50, 50);
@@ -260,7 +258,8 @@ async function createTitleImage(day, imgSource, bgColor, textColor, titleColor, 
             ctx.fillText(cText, 540, 1120); ctx.globalAlpha = 1.0;
         } catch (e) {}
     }
-    await drawBannerFooter(ctx, canvas.width, canvas.height);
+    // Modificado para pasar el color del texto
+    await drawBannerFooter(ctx, canvas.width, canvas.height, textColor);
     return canvas;
 }
 
@@ -290,13 +289,19 @@ function isColorDark(hex) {
     const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) < 130; 
 }
-async function drawBannerFooter(ctx, canvasWidth, canvasHeight) {
+
+// Modificado para elegir el banner según el color del texto
+async function drawBannerFooter(ctx, canvasWidth, canvasHeight, textColor) {
     try {
-        const banner = await loadImage('banner.jpg');
+        const bannerFile = isColorDark(textColor) ? 'banner.png' : 'banner_blanco.png';
+        const banner = await loadImage(bannerFile);
         const bannerW = canvasWidth; const bannerH = banner.height * (bannerW / banner.width);
         ctx.drawImage(banner, 0, canvasHeight - bannerH, bannerW, bannerH);
-    } catch (e) {}
+    } catch (e) {
+        console.error("Error cargando banner:", e);
+    }
 }
+
 function hexToHsl(hex) {
     let r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
     return rgbToHsl(r, g, b);
